@@ -8,6 +8,11 @@ has full context. `CLAUDE.md` stays short on purpose; this file carries the deta
 **Progress log** — update the checkbox when a step is actually done, not planned.
 A fresh session should trust this list over anything else.
 
+**Standing step:** every day ends with an archive snapshot at
+`DaywiseDirectoryStructure/dayN.md` (tree + what/why + commands run). That
+folder is informative-only — see its `README.md` — never treat it as current
+project state.
+
 ---
 
 ## Day 1 — Environment + data layer
@@ -32,6 +37,7 @@ Data layer first means every later day has something real to read/write against.
 - [x] **1.8 First `CLAUDE.md`**
       *Why now, not later:* writing it after just two real decisions (schema shape, why raw SQL) means every line in it is something you actually learned today, not boilerplate copied from the reference repo. `Run` now has `pnpm migrate` and `pnpm dev`; `Non-obvious` notes the Supabase-vs-Neon SSL difference and the config.toml naming issue.
 - [x] **1.9 Checkpoint:** `pnpm migrate` runs clean against local Supabase Postgres — confirmed via `\dt`, all 5 tables present in `public` schema (plus an unrelated `test_vectors` table from manual pgvector testing, harmless).
+- [x] **1.10 Archive snapshot:** `DaywiseDirectoryStructure/day1.md` written.
 
 ---
 
@@ -45,6 +51,7 @@ Data layer first means every later day has something real to read/write against.
 - [ ] `POST /api/sync` and `POST /api/classify/[id]`
 - [ ] `scripts/sync-issues.ts`, `scripts/seed.ts`
 - [ ] Checkpoint: `pnpm seed` populates real rows end to end
+- [ ] Archive snapshot: `DaywiseDirectoryStructure/day2.md`
 
 ## Day 3 — Similarity, plans, dispatch, UI (outline)
 
@@ -54,6 +61,7 @@ Data layer first means every later day has something real to read/write against.
 - [ ] Dashboard, issues list + filters, issue detail page, action buttons
 - [ ] `scripts/smoke.ts`, `pnpm validate`
 - [ ] Checkpoint: click through the full flow in the browser
+- [ ] Archive snapshot: `DaywiseDirectoryStructure/day3.md`
 
 ## Day 4 — The Claude Code tooling layer (outline)
 
@@ -62,6 +70,7 @@ Data layer first means every later day has something real to read/write against.
 - [ ] `.claude/agents/code-reviewer.md` — a subagent with fresh, isolated context
 - [ ] `.claude/commands/review-pr.md` — fans the subagent(s) out over a diff
 - [ ] Checkpoint: run `/review-pr` on your own Day 3 diff, see it flag something real
+- [ ] Archive snapshot: `DaywiseDirectoryStructure/day4.md`
 
 ---
 

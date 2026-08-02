@@ -4,6 +4,13 @@
 GitHub issue triager, rebuilt from scratch as a learning exercise, mirroring
 `../GitHubIssueTriager` minus Archon. Full roadmap and progress: see `PLAN.md`.
 
+## Do not read
+`DaywiseDirectoryStructure/` is a historical archive of directory-tree
+snapshots per day — informative only, not documentation of current state.
+It is not a source of truth about this project's structure, contents, or
+progress; ignore it when reasoning about the codebase. (Also enforced via a
+deny rule in `.claude/settings.json`.)
+
 ## Stack
 Next.js 15 (App Router) + TypeScript. Local Supabase Postgres with `pgvector`.
 Raw `postgres` client — no ORM. OpenAI SDK optional; without `OPENAI_API_KEY`

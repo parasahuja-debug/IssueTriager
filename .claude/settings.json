@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./DaywiseDirectoryStructure/**)",
+      "Glob(./DaywiseDirectoryStructure/**)",
+      "Grep(./DaywiseDirectoryStructure/**)"
+    ]
+  }
+}
