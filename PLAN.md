@@ -45,13 +45,14 @@ Data layer first means every later day has something real to read/write against.
 
 **Why this order:** sync has to work before classify has anything to classify.
 
-- [ ] `src/lib/db.ts` — one shared Postgres client, reused everywhere (avoids connection-pool exhaustion from creating a new client per request)
-- [ ] `src/lib/github.ts` — wraps `gh issue list --json ...`
-- [ ] `src/lib/ai.ts` — `classify()` and `embed()`, each with a **fallback that runs when `OPENAI_API_KEY` is unset** — this is the core "why" of Day 2: the fallback is the happy path for local dev, not an error case
-- [ ] `POST /api/sync` and `POST /api/classify/[id]`
-- [ ] `scripts/sync-issues.ts`, `scripts/seed.ts`
-- [ ] Checkpoint: `pnpm seed` populates real rows end to end
-- [ ] Archive snapshot: `DaywiseDirectoryStructure/day2.md`
+- [x] `lib/db.ts` — one shared Postgres client, reused everywhere (avoids connection-pool exhaustion from creating a new client per request). Path is `lib/`, not `src/lib/`, since this scaffold has no `src/` dir (`tsconfig.json`'s `@/*` alias maps to project root). Singleton cached on `globalThis` so Next.js dev hot-reload doesn't leak connections. No `ssl: "require"` (local Supabase, not Neon). Verified with `scripts/db-check.ts` (`npx tsx scripts/db-check.ts`) — connected, returned `current_database()`/`now()`.
+- [x] `lib/github.ts` — wraps `gh issue list --json ...`. Test data: 5 real issues created via `gh issue create` on `parasahuja-debug/AI_Feedback_Solution_WebCrawl` (repo standardization, request helpers, directory structure, Gemini API config, .env conventions).
+- [x] `lib/ai.ts` — `classify()` and `embed()`, each with a **fallback that runs when `OPENAI_API_KEY` is unset** — this is the core "why" of Day 2: the fallback is the happy path for local dev, not an error case. Mirrors the reference repo's OpenAI-or-fallback structure exactly; real-call branch is dormant (no key set yet) but the `openai` package is installed and the code compiles, so flipping it on later is just adding a key.
+- [x] `POST /api/sync` and `POST /api/classify/[id]` — HTTP wrappers so the future dashboard can trigger sync/classify from a button instead of a terminal. `/api/classify/[id]` is the first route that actually calls into `lib/ai.ts`.
+- [x] `scripts/sync-issues.ts` — checked, `pnpm sync` upserted all 5 issues into `issues` table, confirmed via `psql`
+- [x] `scripts/seed.ts` — chains sync + classify + embed into one script/command (`pnpm seed`), reusing `lib/db.ts`'s shared client rather than opening a second connection like the reference repo does
+- [x] Checkpoint: `pnpm seed` populates real rows end to end — confirmed via `psql`: all 5 issues classified (`mock-rule-based-v1`) and embedded (`mock-hash-v1`, 1536 dims each) with zero API cost, since `OPENAI_API_KEY` is still unset
+- [x] Archive snapshot: `DaywiseDirectoryStructure/day2.md` written
 
 ## Day 3 — Similarity, plans, dispatch, UI (outline)
 
