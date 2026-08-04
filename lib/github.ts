@@ -37,3 +37,19 @@ export async function listIssues(
   );
   return JSON.parse(stdout) as GitHubIssue[];
 }
+
+// Fake branch name for the simulated dispatch step — we never actually create
+// a git branch, just record what one would plausibly be called. This is the
+// seam a real dispatch workflow (Archon or otherwise) would plug into later.
+export async function createBranchName(
+  repo: string,
+  issueNumber: number,
+  slug: string,
+): Promise<string> {
+  const safe = slug
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  return `fix/${issueNumber}-${safe || "issue"}`;
+}

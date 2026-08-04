@@ -54,15 +54,18 @@ Data layer first means every later day has something real to read/write against.
 - [x] Checkpoint: `pnpm seed` populates real rows end to end — confirmed via `psql`: all 5 issues classified (`mock-rule-based-v1`) and embedded (`mock-hash-v1`, 1536 dims each) with zero API cost, since `OPENAI_API_KEY` is still unset
 - [x] Archive snapshot: `DaywiseDirectoryStructure/day2.md` written
 
-## Day 3 — Similarity, plans, dispatch, UI (outline)
+## Day 3 — Similarity, plans, dispatch, UI
 
-- [ ] `POST /api/similar/[id]` — embed + `ORDER BY embedding <=> $1 LIMIT 3` (cosine k-NN)
-- [ ] `POST /api/plan/[id]` — markdown plan, mock template fallback
-- [ ] `POST /api/dispatch/[id]` — simulated only (this is the Archon hook point we're intentionally stubbing)
-- [ ] Dashboard, issues list + filters, issue detail page, action buttons
-- [ ] `scripts/smoke.ts`, `pnpm validate`
-- [ ] Checkpoint: click through the full flow in the browser
-- [ ] Archive snapshot: `DaywiseDirectoryStructure/day3.md`
+- [x] `lib/github.ts` — added `createBranchName()` (fake branch name for the simulated dispatch step; the seam a real dispatch workflow plugs into later, once Archon-equivalent workflows get folded in)
+- [x] `POST /api/similar/[id]` — embed + `ORDER BY embedding <=> $1 LIMIT 3` (cosine k-NN). Decision-support only: never auto-merges/closes, just reports matches.
+- [x] `POST /api/plan/[id]` — markdown plan, mock template fallback. Writes only to `plans`, never touches `classifications`.
+- [x] `POST /api/dispatch/[id]` — simulated only (stub for the Archon hook point). Refuses to dispatch without a plan on file.
+- [x] Dashboard, issues list + filters, issue detail page, action buttons — full UI built. Renamed/restyled from the reference repo on request: "Nebula" violet/teal theme (`--ink-*`/`--tag-*`/`--action-*` CSS variables, `.card`/`.badge`/`.action` classes, all renamed from the reference's `--color-*`/`--chip-*`/`--btn-*` naming), app branded "GitHub Checker" instead of "GitHub Issue Triager".
+- [x] `scripts/smoke.ts`, `pnpm validate` (`typecheck` + `smoke` chained) — smoke hits `/`, `/issues`, `/issues/1` against a running `pnpm dev`, fails on any 5xx.
+- [x] Checkpoint: click through the full flow in the browser — confirmed working after fixing a real bug (see below).
+- [x] Archive snapshot: `DaywiseDirectoryStructure/day3.md` written
+
+**Bug hit and fixed:** `app/globals.css` had a comment containing `--color-*/--chip-*/--btn-*` — the `*/` inside that text closed the CSS comment early, so everything after it got parsed as invalid CSS and crashed every page with a 500. Caught immediately by `pnpm validate`'s smoke test rather than by clicking around manually. Fixed by rewording the comment to avoid any literal `*/` sequence outside an intended comment-closer. Worth remembering: never write `*/` inside a CSS comment body, even as part of prose.
 
 ## Day 4 — The Claude Code tooling layer (outline)
 

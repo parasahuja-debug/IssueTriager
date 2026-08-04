@@ -9,7 +9,10 @@
     "lint": "eslint",
     "migrate": "tsx scripts/migrate.ts",
     "sync": "tsx scripts/sync-issues.ts",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "smoke": "tsx scripts/smoke.ts",
+    "typecheck": "tsc --noEmit",
+    "validate": "pnpm typecheck && pnpm smoke"
   },
   "dependencies": {
     "next": "16.2.12",

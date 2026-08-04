@@ -35,12 +35,101 @@ Create app/api/sync - to sync the issues from the UI expose it as an API call.
     kind of similar to the script/sync-issues.ts, where insert is added to the db post sync.
 
 Create app/api/classify/[id] to -
-    Takes one issue already in the DB (looked up by its id), and decides what kind of issue it is: category (bug/feature/question/docs/chore), priority (P0–P3), complexity, plus a summary/reasoning. Yes — it calls classify() straight from lib/ai.ts (line 3, 27 above), so this is exactly where our OpenAI-or-fallback branching gets exercised for real. The result gets INSERTed as a new row in classifications — note it's an INSERT, never UPDATE: every classify call adds a new history row rather than overwriting, which is why classifications is one-to-many per issue (the dashboard just reads the latest one).
+    Takes one issue already in the DB (looked up by its id), and decides what kind of issue it is: category (bug/feature/question/docs/chore), priority (P0–P3), complexity, plus a summary/reasoning. Yes — it calls classify() straight from lib/ai.ts (line 3, 27 above), so this is exactly where our OpenAI-or-fallback branching gets exercised for real. The result gets INSERTed as a new row in **classifications** — note it's an INSERT, never UPDATE: every classify call adds a new history row rather than overwriting, which is why **classifications** is one-to-many per issue (the dashboard just reads the latest one).
 
 Create seeds.ts in scripts - 
     seed.ts chains all three steps we've built — sync, classify, embed — into one script, so pnpm seed populates real rows end to end without clicking three separate buttons. It's the Day 2 checkpoint script.
  the run pnpm seed.ys post adding it in package.json and see what happened.
+
+
+
+# Day3 in Plan.md
+
+Adding createbranchname in github.ts - the only reason where we would be actually initiating the worktrees for each issue that would be reported. Real harness would come where we would be implementing - would spin up an isolated git branch/worktree to actually attempt the fix. 
+
+> Type check is something we would be doing whenerver we are going to add any piece of code - cd /Users/parasahuja/github/IssueTriagerFromScratch && pnpm exec tsc --noEmit 2>&1 | head -50
+
+Adding route.ts in api - similar issues for specific ID, 
+    - reason one for similarity search, every issue is embedded and checked into the database containing the 
+    issues
+    - returning the similar issues if found and adding the issues in db if none returned based on the similarity searh and score.
+
+Create plans - 
+    POST /api/plan/[id]. It's the simplest of the remaining three routes — takes an issue by id, calls 
+    generatePlan() from lib/ai.ts (real OpenAI call or the mock-template fallback), and INSERTs the markdown result into **plans table**. structured as ## Context / ## Approach / ## Files to touch / ## Validation / ## Risks
+
+Create dispatch -  POST /api/dispatch/[id]
+    It reads the issue and its latest plan (refuses to dispatch if no plan exists yet — you can't work a fix without a plan), calls createBranchName(), and inserts a **runs table** row with status: 'dispatched'.
+    /api/dispatch/[id] looks like it dispatches an issue to an autonomous coding agent (records a branch name, a "dispatched" status, timestamps), but nothing actually runs — no agent spins up, no code gets written, no branch gets created in git. It's there so the rest of the app (the runs table, the UI's "Dispatch" button, the workflow shape) is complete and testable now, and later
+
+Create global.css in app folder.
+    For the formating of the UI page.
+
+Create layout.tsx 
+    layout of the page with the naming convention, themetoggle, nav links ( Dashboard/Issues)
+    component folder - Themetoggle.tsx
+
+Create page.tsx - 
+    Data fetching functions-
+        adding get stats - to get the status of the issues from multiple queries.
+        get category - 
+            since classifications is append-only (one row per classify call, history preserved), we can't    just GROUP BY category directly — that would double-count an issue classified twice. So it first picks the latest classification per issue (DISTINCT ON (issue_id) ... ORDER BY issue_id, created_at DESC), then groups that by category to get counts. This feeds the "By Category" panel.
+        getByPriority() — 
+            same exact pattern as getByCategory(), just grouping on priority instead of category, for the "By Priority" panel.
+        getRecentIssues() — 
+            this one's a bit different. It needs both issue fields and that issue's latest classification together in one row, so instead of DISTINCT ON it uses a LEFT JOIN LATERAL: for each issue row, it runs a correlated subquery ("give me this specific issue's latest classification") and joins the result alongside it. LEFT JOIN (not JOIN) means unclassified issues still show up, just with null category/priority. Feeds the "Recent issues" list — top 8 by creation date.
+    
+    components -
+        StatCard, since Home will use it.
+            What it does: a tiny reusable card — label on top, big number below. Renders once per stat (Issues, Open, Classified, Planned, Runs). Uses our .card class from globals.css.
+
+        Last component: Home, the actual page. It calls all four data functions in parallel (Promise.all, so they run concurrently instead of one after another), then renders: a header with a SyncButton, the 5 StatCards, the category/priority breakdown panels, and the recent-issues list. SyncButton itself doesn't exist yet — I'll stub the import now and we'll build that component next, right after this.
+        
+        Promis.all()-
+            Promise.all([...]) takes an array of promises (here, the 4 async calls to getStats(), getByCategory(), getByPriority(), getRecentIssues()) and runs them concurrently — it kicks off all 4 Postgres queries at roughly the same time instead of waiting for each one to finish before starting the next. 
+        
+        Syncbutton.tsx. - 
+            page.tsx imports SyncButton, which we haven't built yet. Let's do that now.
+            What it does: a small client component with a button. On click, it fetches POST /api/sync, shows the returned message (e.g. "synced 5 issue(s)..."), then calls router.refresh() — that re-runs the server component (Home, including all 4 data queries) so the stats/lists update with the newly synced data, without a full page reload.
+        
+Create - the issues list page (app/issues/page.tsx) with filters. - get issues()
+    FilterRow - import Link from "next/link";
+    Last piece for this file: IssuesPage, the default export. It reads searchParams (the URL's query string — Next.js gives it as a promise you await), calls getIssues() with it, and renders the filter bar (3 FilterRows) plus the filtered list.
+
+Create- the issue detail page (app/issues/[number]/page.tsx) 
+    the biggest remaining piece, showing the issue itself plus classification, similar issues, plan, and dispatch runs, each in their own panel.
+
+    component - 
+        [number] is the GitHub issue number, not the DB primary key — so this queries WHERE github_number = ..., unlike the classify/plan/similar/dispatch routes which take the DB id. Same integer-validation pattern as before, but calls notFound() (Next.js's built-in 404 page trigger) instead of returning JSON, since this is a page, not an API route.
+
+    IssueDetail runs 5 queries (issue, classification, plan, similar, runs) and stores each result in a variable, then renders all of them together in one page.
+        - the latest classification for this issue (same "one row, most recent" pattern we've used throughout).
+        classification is just a local variable inside the same IssueDetail component, holding the result of one query. This whole file is really one component (IssueDetail); the "Classification", "Similar issues", "Plan", and "Dispatch runs" sections you'll see are just JSX blocks rendered one after another inside that single component's return, not separate React components.
+
+        - the similar-issues query — this one's different from /api/similar's logic. It doesn't call embed() at all; it just reads whichever embedding is already stored for this issue (from the last time /api/similar or pnpm seed ran) and compares it against all other stored embeddings via a CROSS JOIN on a one-row subquery (target.embedding). If this issue has never been embedded, target is empty and similar comes back empty too.
+
+        - the plan query — same "latest row" pattern.
+
+        - dispatch runs — up to 5 most recent, newest first.
+
+create page.tsx- the actual JSX — issue header, the (not-yet-built) IssueActions buttons, then the 4 panels (Classification, Similar issues, Plan, Dispatch runs), each showing either real data or a "not yet done, click the button above" placeholder message.
+
+create IssueActions.tsx - in components called in issues/number/page.tsx
+
+create - scripts/smoke.ts — a basic health check: it starts from the assumption the dev server is already running, then hits a few key routes (/, /issues, /issues/1) and fails loudly if any return a 5xx server error. I
+
+update package.json - 
+    "smoke": "tsx scripts/smoke.ts",
+    "typecheck": "tsc --noEmit",
+    "validate": "pnpm typecheck && pnpm smoke"
+
+start dev server - 
+cd /Users/parasahuja/github/IssueTriagerFromScratch && pnpm dev > /tmp/nextdev.log 2>&1 &
+echo "started with PID $!"
+
+
 ----
+
 
 # About Project 
 
