@@ -173,6 +173,63 @@ this project.
 
 ---
 
+## Day 7 — Deployment to Vercel (free tier), additive not replacing local dev (outline)
+
+**Why this order:** every prior day only ran locally. This day adds a real
+deployed environment without taking anything away from local dev — every
+change below is a config-driven *branch* (env var present vs. absent), the
+same shape as `lib/ai.ts`'s existing OpenAI-or-fallback pattern, not a
+replacement of how local dev already works.
+
+**Facts checked live, not from memory** (pricing/limits change):
+- Neon free tier: 500 MB storage, pgvector on all plans, compute **scales to
+  zero after 5 min idle and auto-resumes on the next query** — no manual
+  action needed. Preferred over Supabase's free tier, which instead **pauses
+  entirely after 1 week of inactivity** and needs a manual dashboard
+  un-pause — a worse fit for a low-traffic serverless deployment.
+- Vercel Hobby: function duration 10s default / 60s max (without Fluid
+  compute), 45 min build time, 100 GB fast data transfer, 1M invocations —
+  all comfortably above what this app needs. Licensed for personal,
+  non-commercial use per Vercel's terms.
+- Vercel does not run `pnpm dev`/`pnpm start` as a persistent process — it
+  builds once (`next build`) and deploys each route as an on-demand
+  serverless function. This matters for `lib/db.ts`'s `globalThis`-cached
+  connection singleton, which doesn't behave the same way across separate
+  serverless invocations — Neon's pooled connection string (built for this
+  exact pattern) is the mitigation, not a rewrite of the singleton itself.
+
+- [ ] `lib/github.ts` — give `listIssues()` (and any other `gh`-shelling
+  function) a dual path, same shape as `classify()`/`embed()`:
+  - **If `GITHUB_TOKEN` is set** → real GitHub REST API via `fetch()`. This
+    is what Vercel's env vars would set, since no `gh` binary or local
+    `gh auth login` session exists there.
+  - **If `GITHUB_TOKEN` is unset** → unchanged: shell out to the `gh` CLI,
+    exactly as it does today. Local dev is untouched.
+- [ ] `lib/db.ts` — add a `DATABASE_SSL` env var. Unset locally (current
+  no-SSL behavior unchanged); set to `"require"` only in Vercel's project
+  settings, where `DATABASE_URL` points at Neon instead of local Supabase.
+- [ ] Provision a Neon free-tier project, get its pooled connection string
+  (the one meant for serverless use).
+- [ ] Run `pnpm migrate` **once, manually**, from a local machine, pointed at
+  the Neon `DATABASE_URL` — not wired into an automatic build/deploy step.
+  *Why manual:* consistent with the human-in-the-loop standing rule in
+  `CLAUDE.md` — a broken migration auto-run on every deploy could silently
+  break every future deployment; a manual run keeps a human in that loop.
+- [ ] Create the Vercel project (free Hobby tier), connect it to this repo's
+  git remote, set env vars: `DATABASE_URL` (Neon, pooled), `DATABASE_SSL=require`,
+  `GITHUB_TOKEN` (new — a personal access token), `OPENAI_API_KEY` (optional,
+  same as local).
+- [ ] Deploy. Confirm `pnpm validate`-equivalent checks pass against the
+  deployed URL (adapt `scripts/smoke.ts` to accept a `$BASE_URL` override
+  instead of always assuming `localhost:3000`).
+- [ ] Checkpoint: click through the deployed app exactly as done for the Day
+  3 local checkpoint — dashboard, issues list, an issue detail page, all 4
+  action buttons — confirm real network calls (GitHub REST API, Neon) work
+  end to end from the deployed environment, not just locally.
+- [ ] Archive snapshot: `DaywiseDirectoryStructure/day7.md`
+
+---
+
 ## Explicitly out of scope this week
 - Real automated dispatch / agent-driven workflow execution — `/api/dispatch` is a simulated stub, not a live integration yet
 - Any git branch/worktree lifecycle automation — not needed for this app's current scope
