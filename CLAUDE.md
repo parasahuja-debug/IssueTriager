@@ -1,8 +1,20 @@
 # CLAUDE.md
 
 ## What this is
-GitHub issue triager, rebuilt from scratch as a learning exercise, mirroring
-`../GitHubIssueTriager` minus Archon. Full roadmap and progress: see `PLAN.md`.
+"GitHub Checker" — an AI-assisted GitHub issue triage app: sync issues from a
+repo, classify them, find similar past issues, generate fix plans, and
+(currently simulated) dispatch them for work. Full roadmap and progress: see
+`PLAN.md`.
+
+## Human in the loop — standing rule
+Any addition or change to any file — code, docs, config, migrations, hooks —
+always goes through explicit human confirmation before it's written. This
+applies everywhere, not just to application features: automation we build
+*for* this project (hooks, scheduled tasks, auto-proposed `CLAUDE.md`
+updates, the Day 5 analyzer's proposed issues) must itself never auto-apply
+without a human approving first. A hook may *propose* a change; it must never
+*commit* one on its own. This rule doesn't expire and doesn't get relaxed as
+the project grows — note it here so it never slips off silently.
 
 ## Do not read
 `DaywiseDirectoryStructure/` is a historical archive of directory-tree
@@ -22,9 +34,40 @@ hash-based embedding (this fallback is the happy path, not an error case).
 (`IF NOT EXISTS` everywhere) — safe to re-run against a DB that already has
 the schema. No rollback.
 `pnpm dev` — Next.js dev server.
+`pnpm seed` — full sync + classify + embed end to end.
+`pnpm validate` — `tsc --noEmit` + `pnpm smoke` (hits `/`, `/issues`, `/issues/1`
+against an already-running `pnpm dev`, fails on any 5xx). Run this before
+believing a UI change works — see the CSS gotcha below for why.
+
+## Where things live
+`app/api/{sync,classify,similar,plan,dispatch}/[id]/route.ts` — all mutating
+endpoints are POST; the `id` param is the DB primary key, **except**
+`app/issues/[number]/page.tsx`, which is keyed by the GitHub issue number
+instead (the only page in the app that is). `lib/db.ts` is the only module
+that calls `postgres()` directly — everything else imports its `sql` export.
+Migrations are append-only; never edit `001_init.sql`, add a new file instead.
 
 ## Non-obvious
-- Local dev DB is Supabase's local stack (`supabase start`), not Neon — no
-  `ssl: "require"` on the Postgres client, unlike the cloud reference repo.
+- Local dev DB is Supabase's local stack (`supabase start`) — no
+  `ssl: "require"` needed on the Postgres client, since it's local, not cloud.
 - `supabase/config.toml` is currently misnamed on disk (left as-is intentionally
   for now) — `supabase stop`/`db reset` may not behave correctly until fixed.
+- The classifier and embedder fall back silently when `OPENAI_API_KEY` is
+  missing — don't wrap those call sites in try/catch; the fallback is the
+  happy path for local dev, not an error case.
+- `classifications` and `plans` are append-only (one row per call, history
+  preserved); `similar_issues` is upsert (one current embedding per issue).
+  If you add a classification field, write a view instead of mutating history.
+- `/api/dispatch/[id]` is a stub — it writes a `runs` row and a fake branch
+  name via `lib/github.ts`'s `createBranchName()`, but never runs a real agent
+  or creates a real git branch. It's the seam a real dispatch workflow plugs
+  into later; refuses to run without a plan on file.
+- CSS comments must never contain a literal `*/` outside their own
+  comment-closer — even inside prose. `/* --a-*/--b-* */` closes early at the
+  first `*/`, and everything after gets parsed as invalid CSS, breaking every
+  page with a silent 500. Caught by `pnpm validate`'s smoke test, not by
+  `tsc --noEmit` — type-checking a `.ts` file doesn't validate `.css` syntax.
+- Theme naming convention: `--ink-*`/`--tag-*`/`--action-*` CSS variables and
+  `.card`/`.badge`/`.action` classes (see `app/globals.css`). Keep new UI
+  code consistent with this naming — don't introduce `.panel`/`.chip`/`.btn`
+  or `--color-*`/`--chip-*` alongside it.

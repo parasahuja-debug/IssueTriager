@@ -127,7 +127,20 @@ start dev server -
 cd /Users/parasahuja/github/IssueTriagerFromScratch && pnpm dev > /tmp/nextdev.log 2>&1 &
 echo "started with PID $!"
 
+# Day4 in Plan.md
 
+Update the Claude.md file in Project root - 
+    Containing - **Run** what has the system need to run and commands , and why you'd use to run them.
+    **Non Obvious** what is not regular - A file name, fallback of Open API, how tables are functioning.
+
+Then lets move to plan.md - slash command - 
+    Generally to build the plan around something that we want to build - we will type /plan and the argument of what is needed, then there would be the plan created for us to edit and that's how we can leverage it/edit it to actually implement the functionality.
+
+code-reviewer.md in .claude/agents - 
+    Mainly to actually have a separate mind and report for any issues, invoked by the slash command review-pr.md
+    this is needed so that there is fresh mind looking at the issues with the model categorisation that everything is fine.
+
+review-pr.md - which invokes code reviewer. A major point to note is it is confined to this repo only. To find the bugs on this worktree and or review the already raised PR.
 ----
 
 

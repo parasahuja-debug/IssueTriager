@@ -1,8 +1,8 @@
 // POST /api/dispatch/[id]
-// Stub for the Archon hook point we're intentionally not building yet: records
-// what *would* happen (a branch name, a "dispatched" run) without actually
-// running any agent or creating any real git branch. Refuses to dispatch
-// without a plan already on file — you can't work a fix with no plan.
+// Stub for the future automated-dispatch step: records what *would* happen
+// (a branch name, a "dispatched" run) without actually running any agent or
+// creating any real git branch. Refuses to dispatch without a plan already
+// on file — you can't work a fix with no plan.
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { createBranchName } from "@/lib/github";

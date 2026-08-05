@@ -1,7 +1,6 @@
 // pnpm smoke — assumes `pnpm dev` is already running. Hits a few key routes
 // and fails loudly on any 5xx, as a basic "did I break the app" check.
-// No dynamic port assignment (the reference repo's git-worktree workflow
-// needs that; we don't) — just the plain Next.js default port.
+// Uses the plain Next.js default port; override with $PORT if needed.
 const port = Number(process.env.PORT ?? 3000);
 const base = `http://localhost:${port}`;
 

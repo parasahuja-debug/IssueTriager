@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
-/* "Nebula" theme: violet/teal duotone, renamed from the reference repo's
-   color/chip/btn variable naming to the ink/tag/action naming used here.
-   Swapped by the `data-theme` attribute on <html>, set by the inline script
-   in layout.tsx before paint (avoids a flash of the wrong theme on load). */
+/* "Nebula" theme: violet/teal duotone, built on an ink/tag/action variable
+   naming scheme. Swapped by the `data-theme` attribute on <html>, set by the
+   inline script in layout.tsx before paint (avoids a flash of the wrong
+   theme on load). */
 :root,
 html[data-theme="dark"] {
   color-scheme: dark;
@@ -109,8 +109,7 @@ html[data-theme="light"] {
 
 /* Tailwind v4: no tailwind.config.ts. This block is what makes classes like
    `bg-card`, `text-inkDim`, `border-inkLine` valid Tailwind utilities, each
-   pointing at the --ink-* variables above (the reference repo does this same
-   mapping via tailwind.config.ts's theme.extend.colors instead). */
+   pointing at the --ink-* variables above. */
 @theme inline {
   --color-surface: var(--ink-surface);
   --color-card: var(--ink-card);
@@ -191,7 +190,7 @@ a:hover {
   cursor: not-allowed;
 }
 
-/* Gradient primary action — the one visual flourish beyond the reference repo's flat fills. */
+/* Gradient primary action — the one deliberate visual flourish on top of otherwise flat fills. */
 .action-primary {
   background: linear-gradient(135deg, var(--action-primary-start), var(--action-primary-end));
   border-color: var(--action-primary-line);

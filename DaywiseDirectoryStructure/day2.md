@@ -70,8 +70,7 @@ archive folder itself; unchanged-since-Day-1 entries noted, not re-explained):
   is append-only history, one row per classify call — the future UI reads the latest.
 - **`scripts/seed.ts`** — chains sync -> classify -> embed into one `pnpm seed`
   command, for a single end-to-end checkpoint run. Reuses `lib/db.ts`'s shared
-  Postgres client (unlike the reference repo's `seed.ts`, which opens its own
-  connection) to stay consistent with how `scripts/sync-issues.ts` already does it.
+  Postgres client to stay consistent with how `scripts/sync-issues.ts` already does it.
 
 ## Day 2 checkpoint result
 
@@ -89,7 +88,7 @@ Ran `pnpm seed` against the 5 real GitHub issues synced on Day 2:
 - Total cost: $0, zero external API calls made.
 
 ## Commands run today (chronological, roughly)
-1. `lib/ai.ts` written by hand, mirroring the reference repo's `classify()`/`embed()`/`generatePlan()` structure
+1. `lib/ai.ts` written by hand, with `classify()`/`embed()`/`generatePlan()` each following the OpenAI-or-fallback structure
 2. `pnpm add openai` — needed even with the fallback path active, since the import is static
 3. `app/api/sync/route.ts` written by hand
 4. `app/api/classify/[id]/route.ts` written by hand

@@ -40,7 +40,7 @@ export async function listIssues(
 
 // Fake branch name for the simulated dispatch step — we never actually create
 // a git branch, just record what one would plausibly be called. This is the
-// seam a real dispatch workflow (Archon or otherwise) would plug into later.
+// seam a real dispatch workflow would plug into later.
 export async function createBranchName(
   repo: string,
   issueNumber: number,

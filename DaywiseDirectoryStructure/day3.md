@@ -63,8 +63,7 @@ re-explained):
 
 - **`lib/github.ts`'s `createBranchName()`** — slugifies an issue title into a
   fake branch name (`fix/<number>-<slug>`) for the simulated dispatch step.
-  Never touches real git. This is the seam a real dispatch workflow (once
-  Archon-equivalent workflows get folded into this app, per plan) plugs into
+  Never touches real git. This is the seam a real dispatch workflow plugs into
   later without changing anything around it.
 - **`app/api/similar/[id]/route.ts`** — re-embeds one issue, upserts the vector
   into `similar_issues`, then finds the 3 closest other issues by cosine
@@ -78,17 +77,15 @@ re-explained):
   run any real agent or create any real git branch. Refuses to run without a
   plan already on file. Placeholder for the workflow layer intentionally out
   of scope this week.
-- **`app/globals.css`** — "Nebula" theme: violet/teal duotone (chosen over the
-  reference repo's blue-on-navy, on request), with CSS variables and class
-  names deliberately renamed (`--ink-*`/`--tag-*`/`--action-*`,
-  `.card`/`.badge`/`.action` instead of the reference's
-  `--color-*`/`--chip-*`/`--btn-*`, `.panel`/`.chip`/`.btn`). Tailwind v4's
-  `@theme inline` block does the color-name-to-variable mapping the reference
-  repo does via a separate `tailwind.config.ts` (this project has no such file).
+- **`app/globals.css`** — "Nebula" theme: violet/teal duotone, with CSS
+  variables and class names following an `--ink-*`/`--tag-*`/`--action-*`,
+  `.card`/`.badge`/`.action` naming scheme throughout. Tailwind v4's
+  `@theme inline` block does the color-name-to-variable mapping (no separate
+  `tailwind.config.ts` file needed in this setup).
 - **`app/layout.tsx`** — shared header/nav/footer shell every page renders
-  inside; branded "GitHub Checker" (not "GitHub Issue Triager"). Includes an
-  inline, blocking `<script>` that sets `data-theme` before paint, so the page
-  never flashes the wrong theme on load.
+  inside; branded "GitHub Checker". Includes an inline, blocking `<script>`
+  that sets `data-theme` before paint, so the page never flashes the wrong
+  theme on load.
 - **`app/page.tsx`** — the dashboard. 4 independent Postgres queries run
   concurrently via `Promise.all` (none depend on each other), rendered as 5
   stat cards, 2 breakdown panels, and a recent-issues list.
@@ -115,13 +112,13 @@ re-explained):
 
 `pnpm validate` initially failed: `pnpm typecheck` passed clean, but
 `pnpm smoke` reported all 3 routes returning 500. The dev server log showed a
-`CssSyntaxError` in `app/globals.css` at line 4 — a comment described the
-renamed CSS variables as `--color-*/--chip-*/--btn-*`, and the `*/` embedded in
-that text closed the CSS comment early. Everything after that point got parsed
-as invalid CSS, breaking every page. Fixed by rewording the comment to avoid
-any literal `*/` outside an intentional comment-closer. Caught immediately by
-the smoke test rather than by manually clicking through the browser — exactly
-the kind of regression `pnpm validate` exists to catch.
+`CssSyntaxError` in `app/globals.css` at line 4 — a prose comment happened to
+contain a literal `*/` sequence in the middle of listing variable-name
+patterns, which closed the CSS comment early. Everything after that point got
+parsed as invalid CSS, breaking every page. Fixed by rewording the comment to
+avoid any literal `*/` outside an intentional comment-closer. Caught
+immediately by the smoke test rather than by manually clicking through the
+browser — exactly the kind of regression `pnpm validate` exists to catch.
 
 ## Commands run today (chronological, roughly)
 1. `lib/github.ts` — `createBranchName()` added by hand
