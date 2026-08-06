@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { sql } from "@/lib/db";
 import IssueActions from "@/components/IssueActions";
+import { SourceBadge, RepoLink } from "@/components/IssueBadges";
+import { RecordView } from "@/components/RecordView";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,7 @@ type IssueRow = {
   url: string;
   labels: string[];
   github_created_at: string;
+  source: string;
 };
 
 type LatestClassification = {
@@ -37,6 +40,7 @@ type LatestPlan = {
 
 type SimilarRow = {
   github_number: number;
+  github_repo: string;
   title: string;
   similarity: number;
   state: string;
@@ -50,17 +54,30 @@ type RunRow = {
   created_at: string;
 };
 
-// [number] is the GitHub issue number, not the DB primary key — so this
-// queries WHERE github_number = ..., unlike the API routes which take the DB id.
-export default async function IssueDetail({ params }: { params: Promise<{ number: string }> }) {
+// IssueDetail is the individual issue page, keyed by GitHub issue number (not DB id).
+// Accepts an optional ?repo= query param to disambiguate — github_number alone
+// collides across repos (every repo's first issue is #1), so without it this
+// falls back to whichever row Postgres returns first, which can be wrong.
+// Displays issue details, latest classification, similar issues via pgvector, fix plans, and dispatch runs.
+// [number] is the GitHub issue number from the URL (e.g., /issues/42).
+export default async function IssueDetail({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ number: string }>;
+  searchParams: Promise<{ repo?: string }>;
+}) {
   const p = await params;
   if (!/^\d+$/.test(p.number)) notFound();
   const number = parseInt(p.number, 10);
   if (!Number.isSafeInteger(number) || number < 1 || number > 2147483647) notFound();
+  const sp = await searchParams;
+  const repo = sp.repo;
 
+  // Fetch issue with source (github or analyzer) to show where it came from
   const issue = ((await sql`
-    SELECT id, github_repo, github_number, title, body, state, author, url, labels, github_created_at
-    FROM issues WHERE github_number = ${number} LIMIT 1
+    SELECT id, github_repo, github_number, title, body, state, author, url, labels, github_created_at, source
+    FROM issues WHERE github_number = ${number} AND ${repo ? sql`github_repo = ${repo}` : sql`1=1`} LIMIT 1
   `) as unknown as IssueRow[])[0];
 
   if (!issue) notFound();
@@ -79,6 +96,7 @@ export default async function IssueDetail({ params }: { params: Promise<{ number
   const similar = (await sql`
     SELECT
       i2.github_number,
+      i2.github_repo,
       i2.title,
       i2.state,
       1 - (s.embedding <=> target.embedding) AS similarity
@@ -100,6 +118,16 @@ export default async function IssueDetail({ params }: { params: Promise<{ number
 
   return (
     <div className="space-y-6">
+      {/* Headless — records this view into localStorage for the dashboard's Recently viewed box */}
+      <RecordView
+        repo={issue.github_repo}
+        number={issue.github_number}
+        title={issue.title}
+        state={issue.state}
+        category={classification?.category}
+        priority={classification?.priority}
+      />
+
       <div>
         <Link href="/issues" className="text-sm no-underline">← Back to issues</Link>
       </div>
@@ -109,6 +137,11 @@ export default async function IssueDetail({ params }: { params: Promise<{ number
           <span className="text-inkDim">#{issue.github_number}</span>
           <h1 className="text-2xl font-bold flex-1">{issue.title}</h1>
           <span className="badge">{issue.state}</span>
+        </div>
+        {/* Source (GitHub or AI Analyzer) and repository badges */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <SourceBadge source={issue.source} />
+          <RepoLink repo={issue.github_repo} />
         </div>
         <div className="flex items-center gap-2 flex-wrap text-sm">
           {issue.author && <span className="text-inkDim">by {issue.author}</span>}
@@ -162,7 +195,7 @@ export default async function IssueDetail({ params }: { params: Promise<{ number
             {similar.map((s) => (
               <li key={s.github_number} className="py-2 flex items-center gap-3 text-sm">
                 <span className="text-inkDim w-12">#{s.github_number}</span>
-                <Link href={`/issues/${s.github_number}`} className="flex-1 no-underline text-foreground hover:text-glow">
+                <Link href={`/issues/${s.github_number}?repo=${encodeURIComponent(s.github_repo)}`} className="flex-1 no-underline text-foreground hover:text-glow">
                   {s.title}
                 </Link>
                 <span className="badge">{(s.similarity * 100).toFixed(0)}% match</span>

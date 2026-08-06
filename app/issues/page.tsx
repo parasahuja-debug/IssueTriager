@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { sql } from "@/lib/db";
+import { SourceBadge, RepoLink } from "@/components/IssueBadges";
 
 export const dynamic = "force-dynamic";
 
@@ -11,12 +12,14 @@ type Row = {
   category: string | null;
   priority: string | null;
   complexity: string | null;
+  source: string;
+  github_repo: string;
 };
 
-// Same LEFT JOIN LATERAL pattern as the dashboard's getRecentIssues(), plus
-// optional filtering. Each WHERE clause is written as
-// "(filter IS NULL OR column = filter)" so an unset filter is a no-op instead
-// of needing separate SQL branches per filter combination.
+// getIssues fetches issues from the database with optional filtering by category, priority, or state.
+// Uses LEFT JOIN LATERAL to get the latest classification for each issue in a single query.
+// Each filter condition is written as "(filter IS NULL OR column = filter)" so unset filters are no-ops
+// rather than needing separate SQL branches for every filter combination.
 async function getIssues(filter: { category?: string; priority?: string; state?: string }): Promise<Row[]> {
   const rows = (await sql`
     SELECT
@@ -24,6 +27,8 @@ async function getIssues(filter: { category?: string; priority?: string; state?:
       i.github_number,
       i.title,
       i.state,
+      i.source,
+      i.github_repo,
       latest.category,
       latest.priority,
       latest.complexity
@@ -110,7 +115,6 @@ export default async function IssuesPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Issues</h1>
-        <p className="text-inkDim mt-2">Sorted by priority, then creation date.</p>
       </div>
 
       <div className="card space-y-3" data-testid="filter-bar">
@@ -125,14 +129,18 @@ export default async function IssuesPage({
         ) : (
           <ul className="divide-y divide-inkLine">
             {rows.map((i) => (
-              <li key={i.id} className="py-3 flex items-center gap-3" data-testid="issue-row">
+              <li key={i.id} className="py-3 flex items-center gap-3 flex-wrap" data-testid="issue-row">
                 <span className="text-inkDim text-sm w-14">#{i.github_number}</span>
                 <Link
-                  href={`/issues/${i.github_number}`}
+                  href={`/issues/${i.github_number}?repo=${encodeURIComponent(i.github_repo)}`}
                   className="flex-1 no-underline text-foreground hover:text-glow"
                 >
                   {i.title}
                 </Link>
+                {/* Source badge (GitHub or AI Analyzer) and repo link */}
+                <SourceBadge source={i.source} />
+                <RepoLink repo={i.github_repo} />
+                {/* Classification badges */}
                 {i.category && <span className={`badge badge-${i.category}`}>{i.category}</span>}
                 {i.priority && <span className={`badge badge-${i.priority}`}>{i.priority}</span>}
                 {i.complexity && <span className="badge">{i.complexity}</span>}

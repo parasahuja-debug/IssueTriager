@@ -59,9 +59,16 @@ export default function RootLayout({
               <Link href="/" className="no-underline">
                 Dashboard
               </Link>
+              {/* COMMENTED 2026-08-06: Issues and Proposed links removed from top
+                  nav per user request — both are now nav buttons on the dashboard
+                  itself, beside Analyze, so they were redundant here.
               <Link href="/issues" className="no-underline">
                 Issues
               </Link>
+              <Link href="/proposed" className="no-underline">
+                Proposed
+              </Link>
+              */}
               <ThemeToggle />
             </nav>
           </div>

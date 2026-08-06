@@ -16,6 +16,24 @@ without a human approving first. A hook may *propose* a change; it must never
 *commit* one on its own. This rule doesn't expire and doesn't get relaxed as
 the project grows — note it here so it never slips off silently.
 
+## No internal implementation details in user-facing text — standing rule
+Any string a route/component actually sends to a browser or API caller
+(`message` fields in JSON responses, UI copy, error text) must never mention
+internal file paths, module names, or code structure — e.g. never say
+"see lib/pricing.ts" or "check CLAUDE.md" in a response body. Comments and
+internal docs are fine to reference those things; user-facing text is not.
+Hit once already in `/api/analyze/estimate`'s approximation notice — caught
+before it shipped, but easy to repeat, so it's recorded here.
+
+## Comment out, don't delete — standing rule
+When replacing or removing existing logic during a change, comment the old
+code out in place rather than deleting it, with a comment above it stating
+the date and *why* it was replaced/removed. Don't delete it outright unless
+the user explicitly says to. This applies everywhere code changes — routes,
+components, lib functions, queries. Example precedent: `getRecentIssues` in
+`app/page.tsx` was commented out (not deleted) when replaced by
+`RecentlyViewed`, with a note on why.
+
 ## Do not read
 `DaywiseDirectoryStructure/` is a historical archive of directory-tree
 snapshots per day — informative only, not documentation of current state.
@@ -67,6 +85,22 @@ Migrations are append-only; never edit `001_init.sql`, add a new file instead.
   first `*/`, and everything after gets parsed as invalid CSS, breaking every
   page with a silent 500. Caught by `pnpm validate`'s smoke test, not by
   `tsc --noEmit` — type-checking a `.ts` file doesn't validate `.css` syntax.
+- Analyzer-sourced issues (`source = 'analyzer'`) get filed as real GitHub
+  issues on approval, via `createIssue()` in `lib/github.ts` — the local
+  `issues` row uses the real number/url `gh issue create` returns, and gets
+  classified immediately (`classifyIssue()`, same function sync's
+  auto-classify path and the manual "Classify" button use). COMMENTED
+  2026-08-06 — previously approval only inserted a local-only row with a
+  synthetic `github_number = 1,000,000,000 + proposed_issues.id`, since
+  nothing was ever actually filed on GitHub; user asked for approval to file
+  for real instead, so that scheme no longer applies:
+  <!--
+  Analyzer-sourced issues (`source = 'analyzer'`) get a synthetic
+  `github_number` = `1,000,000,000 + proposed_issues.id` on approval, since
+  they were never filed on GitHub and have no real number. Always positive
+  (works with existing route validation), guaranteed unique (derived from an
+  already-unique id) — not a bug if you see a billion-range issue number.
+  -->
 - Theme naming convention: `--ink-*`/`--tag-*`/`--action-*` CSS variables and
   `.card`/`.badge`/`.action` classes (see `app/globals.css`). Keep new UI
   code consistent with this naming — don't introduce `.panel`/`.chip`/`.btn`

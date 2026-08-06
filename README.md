@@ -44,14 +44,14 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 # Daywise Plan -
 
-# Day1 in Plan.md
+## Day1 in Plan.md
 
 Create virtual env - yourself
 Install dependencies and run steps yourself - 1.1 to 1.6 (refer Supabase README.md for detailed commands)
 
 ----
 
-# Day2 in Plan.md
+## Day2 in Plan.md
 
 Create db.ts in /lib folder for portgres connection - As Postgres has a hard cap on concurrent connections. If every API route created postgres(url) itself, you'd open a new connection pool per request 
     Then change scripts/db-check.ts to use the same connection from lib
@@ -87,9 +87,9 @@ Create seeds.ts in scripts -
     seed.ts chains all three steps we've built — sync, classify, embed — into one script, so pnpm seed populates real rows end to end without clicking three separate buttons. It's the Day 2 checkpoint script.
  the run pnpm seed.ys post adding it in package.json and see what happened.
 
+------
 
-
-# Day3 in Plan.md
+## Day3 in Plan.md
 
 Adding createbranchname in github.ts - the only reason where we would be actually initiating the worktrees for each issue that would be reported. Real harness would come where we would be implementing - would spin up an isolated git branch/worktree to actually attempt the fix. 
 
@@ -173,7 +173,9 @@ start dev server -
 cd /Users/parasahuja/github/IssueTriagerFromScratch && pnpm dev > /tmp/nextdev.log 2>&1 &
 echo "started with PID $!"
 
-# Day4 in Plan.md
+------
+
+## Day4 in Plan.md
 
 Update the Claude.md file in Project root - 
     Containing - **Run** what has the system need to run and commands , and why you'd use to run them.
@@ -187,3 +189,103 @@ code-reviewer.md in .claude/agents -
     this is needed so that there is fresh mind looking at the issues with the model categorisation that everything is fine.
 
 review-pr.md - which invokes code reviewer. A major point to note is it is confined to this repo only. To find the bugs on this worktree and or review the already raised PR.
+
+
+--------
+
+## Day 5 in Plan.md
+
+002_analyzer.sql - 
+    - issues.source : tags every issue 'github' (synced from a real reporter) or 'analyzer' (self-generated), defaulting existing rows to 'github'.
+    - tracked_repos : the multi-repo registry: which repos this app knows about, who added each one, when.
+    - analysis_runs : one row per analysis ever triggered (metadata-level or file-scoped), regardless of what it found.
+    - proposed_issues : the human-in-the-loop staging area. Nothing here is a real issue yet; only an explicit approval copies a row into issues.
+
+pnpm migrate - to run all the .sql. The existing 001_init.sql runs without changes.
+
+Run to validate - psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "\d issues" -c "\dt tracked_repos" -c "\dt analysis_runs" -c "\dt proposed_issues"
+
+Edits in lib/github.ts - Two new functions in lib/github.ts, both using gh api. gh api would be editted with new API
+for cloud migrations in Day7. **These additions are mainly to suggest issues basis content, if any basis just metadata traversal** -
+    - getRepoContext(repo)   : repo description/topics, the README's raw text, the last 20 commit messages, and existing open issue titles (for de-duplication)
+    - getFileContent(repo, path) : the file-scoped depth: fetches one specific file's real raw content, same raw-media-type trick.
+
+Create lib/token.ts - Mainly to find out the tokens going to be used if you want to investigate the issues.
+    Calls pricing.ts for the prices.
+
+pricing.ts - only prices for the different models.
+
+pnpm add @anthropic-ai/sdk @google/genai - before writing Editing lib/ai.ts
+    cd /Users/parasahuja/github/IssueTriagerFromScratch && pnpm add @anthropic-ai/sdk @google/genai
+    cd /Users/parasahuja/github/IssueTriagerFromScratch && pnpm approve-builds 2>&1  ------Approve pending build scripts for the new packages
+    pnpm approve-builds @google/genai protobufjs 2>&1 ----------Approve build scripts non-interactively
+    pnpm exec tsc --noEmit 2>&1 | head -50  -------(typcheck)
+
+Editing lib/ai.ts - Multiproviders added to check the issues as per the suggestion.
+    function - analyzeRepo()
+
+app/api/repos/route.ts — the multi-repo registry, POST to add, GET to list. 
+    this is to check what are the tracked repos, add if is not in the list and get if there.
+
+app/api/analyze/estimate/route.ts - to provide the estimates to the user before prociding for the issue analysis.
+
+POST /api/analyze - run the analysis on the issue - real spend is happenning as ai calls are made to analyse.
+
+POST /api/proposed/[id]/approve
+    analyzeRepo() generates candidate issues and they get written to proposed_issues with status = 'pending'. At this point, nothing is a real issue yet — it's just sitting in the staging table, visible for a human to review.
+    "Giving new" (creating a real issue + assigning the synthetic github_number) only happens here, at approval time — this POST /api/proposed/[id]/approve route. A human looks at a specific pending proposal and explicitly approves it; only then does a row get copied into the real issues table.
+
+POST /api/proposed/[id]/reject - simpler: just marks as rejected, same logging. Never deleted, always kept as audit record.
+
+.claude/commands/analyze-repo.md — the slash command entry point for running analysis from the CLI.
+----
+UI components - 
+
+RepoSelector.tsx - RepoSelector fetches the list of tracked repos from the database and displays each with metadata (who added it, when).
+
+app/analyze/page.tsx - analyze page to select the repo
+
+add RepoSelectorProps in RepoSelector.tsx - for select
+    What we're adding:
+        Track which repo is selected with state
+        Make repo cards clickable
+        Highlight the selected repo with different styling
+        Call onRepoSelected callback so parent knows which repo was picked
+
+
+update page.tsx - once selector added
+
+create components/AnalyzeForm.tsx
+    Add "Add New Repo" Form - in RepoSelector.tsx - to select any New repo
+    Step 1 of AnalyzeForm: Build the kind picker (metadata vs file)
+        What it does:
+        Two radio buttons or toggle: "Repository Metadata" or "Specific File"
+        Switching changes which fields show below
+        Stores choice in state
+    
+    import in page.tsx
+
+app/page.tsx - add analyze form to main page.
+
+/api/proposed - page to list and manage proposed issues
+
+/api/layout.tsx - entry for proposed
+
+IssueBadges.tsx - to show the issues is the already reported issue on git or tracked from analyzer.
+
+Change issues/page.tsx to get the badge and issues number page as well.
+
+Repo filter.tsx -  and add it in /app/page.tsx for main page rendering
+
+SuccessModal.tsx - for the add repo button on analyze page
+
+Repomanager.tsx - 
+    Add Repository form — user enters "username/repo" and adds it
+    RepoFilter list — shows all tracked repos to select from
+    SuccessModal — pops up when repo is added successfully, then refreshes the list
+
+Add repofilter in main page - /app/page.tsx - for by repository filter
+
+RecordView/Recent view - on main page to display the recent items.
+
+-------------
