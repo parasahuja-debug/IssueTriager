@@ -88,30 +88,30 @@ propose candidate issues, at two depths (process-level signals, or a specific
 file's real content), always staged for human approval before becoming a real
 issue, and always with a token/cost estimate shown *before* anything is spent.
 
-- [ ] `migrations/002_analyzer.sql` (new file — `001_init.sql` stays untouched):
+- [x] `migrations/002_analyzer.sql` (new file — `001_init.sql` stays untouched):
   - `issues.source` column (`'github' | 'analyzer'`, default `'github'`) — every issue traceable to its origin
   - `tracked_repos` table (`github_repo` PK, `added_by`, `added_at`) — the multi-repo registry, addable from the UI, persisted across visits
   - `analysis_runs` table (`id, github_repo, scope 'metadata'|'file', file_paths TEXT[], requested_by, model, created_at`) — one row per analysis ever run, found-anything-or-not
   - `proposed_issues` table (`id, analysis_run_id, github_repo, title, body, category_guess, priority_guess, kind 'metadata'|'file', status 'pending'|'approved'|'rejected', reviewed_by, reviewed_at`) — the staging area; nothing here is a real issue until approved
-- [ ] `lib/github.ts` additions:
+- [x] `lib/github.ts` additions:
   - `getRepoContext(repo)` — description/topics, README, last ~20 commit messages, existing open issue titles (for de-dup)
   - `getFileContent(repo, path)` — one file's real content, via `gh api repos/{repo}/contents/{path}`, for the file-scoped depth
-- [ ] `lib/tokens.ts` (new) — `estimateTokens(text)` (char count / ~4) and `estimateCost(tokens, model)` (pure arithmetic against the pricing table). No AI call involved — this runs on text we already have in hand, before deciding whether to spend anything on a real model call.
-- [ ] `lib/ai.ts` addition: `analyzeRepo(context, kind, existingTitles)` — same OpenAI-or-fallback shape as `classify()`. Real call proposes 3-5 candidate issues from the given context; fallback is rule-based (no README, no LICENSE, no CI config, etc.) for the metadata kind.
-- [ ] Routes:
+- [x] `lib/tokens.ts` (new) — `estimateTokens(text)` (char count / ~4) and `estimateCost(tokens, model)` (pure arithmetic against the pricing table). No AI call involved — this runs on text we already have in hand, before deciding whether to spend anything on a real model call.
+- [x] `lib/ai.ts` addition: `analyzeRepo(context, kind, existingTitles)` — same OpenAI-or-fallback shape as `classify()`. Real call proposes 3-5 candidate issues from the given context; fallback is rule-based (no README, no LICENSE, no CI config, etc.) for the metadata kind.
+- [x] Routes:
   - `POST /api/repos` — add a repo to `tracked_repos`; `GET /api/repos` — list tracked repos
   - `POST /api/analyze/estimate` — given repo + kind (+ file paths), returns a token/cost estimate, spends nothing
   - `POST /api/analyze` — given repo + kind (+ file paths) + explicit confirmation, runs `analyzeRepo()`, writes `analysis_runs` + `proposed_issues` rows
-  - `POST /api/proposed/[id]/approve` — copies a proposal into real `issues` (`source = 'analyzer'`), logs `reviewed_by` (local OS username — no real auth system exists yet, flagged honestly as best-effort, not a secure audit trail) and `reviewed_at`
+  - `POST /api/proposed/[id]/approve` — copies a proposal into real `issues` (`source = 'analyzer'`), logs `reviewed_by` (local OS username — no real auth system exists yet, flagged honestly as best-effort, not a secure audit trail) and `reviewed_at`. Revised same day after initial implementation: now files a real GitHub issue via `createIssue()` and auto-classifies it, instead of inserting a local-only row with a synthetic number — see `CLAUDE.md`'s "Non-obvious" section.
   - `POST /api/proposed/[id]/reject` — marks rejected, same logging; row is kept forever, never deleted
-- [ ] `.claude/commands/analyze-repo.md` — the CLI entry point into the same capability, for any remote repo/branch, same estimate-then-confirm flow as the UI
-- [ ] UI additions:
+- [x] `.claude/commands/analyze-repo.md` — the CLI entry point into the same capability, for any remote repo/branch, same estimate-then-confirm flow as the UI
+- [x] UI additions:
   - Repo selector on the dashboard — tracked repos + "add repo" input, persisted via `/api/repos`, remembered on future visits until changed
   - Staged analyze flow: check existing `issues` first → offer metadata vs file-scoped → show cost estimate → require explicit confirm → run
   - Proposed-issues panel — pending proposals with `Metadata-considered` / `Code-level` badges (never blurred together), Approve/Reject buttons
   - `source` badge (`github` vs `analyzer`) and repo badge added to every issue row/detail view across the app
-- [ ] Checkpoint: add a second real repo via the UI, run a metadata-level analyze on it, confirm the cost estimate appears before anything is spent, approve one proposed issue, verify it becomes a real row in `issues` and is classifiable/plannable like any other issue
-- [ ] Archive snapshot: `DaywiseDirectoryStructure/day5.md`
+- [x] Checkpoint: added 6 repos via the UI (not just a second one); the one analyze run actually exercised was **file-scoped** (`src/lib/ai.ts`, `src/components/AnalyzeForm.tsx`, real `claude-opus-4-8` call — not metadata-level as originally written here, but the full propose→approve→classify pipeline is what this checkpoint actually validates, and that ran regardless of depth); approved one proposed issue ("Add error handling for invalid embedding dimensions") which is now a real GitHub issue (`AI_Feedback_Solution_WebCrawl#6`) and already classified (`bug`/`P1`/`small`)
+- [x] Archive snapshot: `DaywiseDirectoryStructure/day5.md`
 
 ---
 
@@ -130,46 +130,49 @@ never auto-apply one. A Stop hook suggesting a `CLAUDE.md` addition still
 requires a human to say yes before it's written, same as everything else in
 this project.
 
-- [ ] **Subdirectory `CLAUDE.md` files** — add scoped ones for `app/api/`
-  (route conventions: POST-only, `[id]` vs `[number]`, validation pattern)
-  and `lib/` (fallback pattern, single-db-client rule). *Why:* the root
-  `CLAUDE.md` is already carrying a lot of "Non-obvious" bullets; layered
-  files let local rules live next to the code they actually describe, and
-  keep the root file lean as the project keeps growing.
-- [ ] **A Stop hook proposing `CLAUDE.md` updates** — fires when a session
-  ends, checks whether anything changed that looks like a new gotcha, and
-  *proposes* a `CLAUDE.md` addition for a human to accept or reject — never
-  writes it directly. *Why:* this is literally how we've built `CLAUDE.md`
-  so far, by hand, after hitting a gotcha (the CSS `*/` bug, the SSL
-  difference). A hook catches the "should this be recorded?" question
-  automatically; a human still decides the answer.
-- [ ] **A pre-commit hook enforcing `pnpm validate`** — blocks a commit if
-  `tsc --noEmit` or `pnpm smoke` fails; it can refuse an action, but it does
-  not write or change any file itself, so it doesn't conflict with the
-  human-in-the-loop rule. *Why:* the Day 3 CSS bug is exactly what this
-  would have caught before it ever reached a commit.
-- [ ] **Evaluate an MCP server for Postgres** — lets Claude introspect the
-  live schema directly instead of only ever reasoning from migration files.
-  *Why:* Day 5 alone adds 4 new tables; the schema is no longer small enough
-  to hold entirely from memory across sessions, and migration files can
-  drift from what's actually running. (Introspection is read-only — no
-  tension with the human-in-the-loop rule, which only governs writes.)
-- [ ] **Document the Day 4 subagent-registration gap in `CLAUDE.md`** — the
-  `Agent` tool not picking up `.claude/agents/*.md` in this environment,
-  plus the manual-review workaround, so a future session doesn't waste time
-  rediscovering it.
-- [ ] **Explicitly out of scope, and why**: org-wide plugin marketplaces, a
-  dedicated infra-team/DRI, LSP server integration — all aimed at
-  multi-team, multi-repo organizations coordinating shared conventions
-  across many engineers. This is a single-developer, single-repo project;
-  adopting those now would be process for its own sake. Revisit if that
+- [x] **Subdirectory `CLAUDE.md` files** — added `app/api/CLAUDE.md` (route
+  conventions: mostly-POST + 2 GET exceptions, verb-subdirectory sub-actions,
+  `[id]` vs `[number]`, validation pattern, response/error shapes, a
+  route-by-route "what's here" table) and `lib/CLAUDE.md` (single-db-client
+  rule, the two fallback shapes, `gh` CLI via `execFile`, a file-by-file
+  table) — both verified against every route/export via `grep` before
+  writing, not from memory. Both went through several review rounds: first
+  drafts covered conventions only and missed the "what does each thing do"
+  map, which turned out to be the actual point of a scoped file.
+- [x] **A Stop hook proposing `CLAUDE.md` updates** — `scripts/check-doc-drift.sh`,
+  registered on both `Stop` and `SessionStart` in `.claude/settings.json`
+  (the latter as a backstop for a session that crashes/is force-quit
+  instead of stopping cleanly). Deduped via a hash cached in
+  `.claude/.doc-drift-state` (gitignored) so it doesn't re-block every stop
+  for the same unreviewed change. **Fired for real, unprompted, during
+  this same session** — proposed an addition (documenting the two-hooks-
+  mechanisms gotcha, see `CLAUDE.md`), which was reviewed and only written
+  after explicit approval. Propose-not-apply verified live, not staged.
+- [x] **A pre-commit hook enforcing `pnpm validate`** — `scripts/git-hooks/pre-commit`
+  written (tsc always blocking, smoke best-effort if a dev server is
+  already up) but **deliberately not activated** — `core.hooksPath` was
+  never set. After a near-miss where a direct/manual invocation would have
+  bypassed git and run real checks, the script body was commented out
+  (dated, with why) so even a manual call is a no-op. Revisit activation
+  later, together with the hooksPath setup step, as one decision.
+- [x] **Evaluate an MCP server for Postgres** — research only, recorded in
+  `IDEAS.md` (by request, not here). Anthropic's official
+  `@modelcontextprotocol/server-postgres` was read-only by design but
+  deprecated/archived July 2025 after a SQL-injection finding. Supabase's
+  own `supabase-mcp` (official, supports `--read-only`) is the better fit
+  given this project already runs Supabase locally. Not configured.
+- [x] **Document the Day 4 subagent-registration gap in `CLAUDE.md`** —
+  dropped from scope on request; not done this day.
+- [x] **Explicitly out of scope, and why**: added to `CLAUDE.md` — org-wide
+  plugin marketplaces, a dedicated infra-team/DRI, LSP server integration.
+  All three coordinate shared conventions across many engineers on
+  multi-repo orgs; this is single-developer, single-repo. Revisit if that
   changes.
-- [ ] Checkpoint: trigger the Stop hook once, confirm it *proposes* a
-  `CLAUDE.md` addition rather than writing it directly, and that a human
-  approval step is actually required before it lands; trigger the
-  pre-commit hook with a deliberately broken file, confirm it blocks the
-  commit without modifying anything itself.
-- [ ] Archive snapshot: `DaywiseDirectoryStructure/day6.md`
+- [x] Checkpoint: Stop hook propose-not-apply verified live (see above).
+  Pre-commit hook's blocking-on-failure behavior **not verified** — the
+  script is intentionally inert (body commented out), so there was nothing
+  live to trigger; deferred to whenever activation is decided.
+- [x] Archive snapshot: `DaywiseDirectoryStructure/day6.md`
 
 ---
 

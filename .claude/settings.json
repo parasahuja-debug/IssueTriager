@@ -5,5 +5,23 @@
       "Glob(./DaywiseDirectoryStructure/**)",
       "Grep(./DaywiseDirectoryStructure/**)"
     ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "scripts/check-doc-drift.sh Stop" }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "scripts/check-doc-drift.sh SessionStart" }
+        ]
+      }
+    ]
   }
 }

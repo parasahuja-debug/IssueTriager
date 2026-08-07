@@ -4,6 +4,13 @@ import { useState, useRef } from "react";
 import { RepoFilter } from "./RepoFilter";
 import { SuccessModal } from "./SuccessModal";
 
+// UNUSED (2026-08-06) — imported nowhere in the app. Built while deciding
+// whether /analyze should use a combined form+selector+modal (this
+// component) versus its own custom add-form + RepoSelector; the latter was
+// kept instead and this was never wired in. Left in place, not deleted,
+// in case that decision gets revisited — it's a complete, working
+// alternative, just not the one currently plugged in anywhere.
+//
 // RepoManager combines repo selection and repo addition in one component.
 // Handles adding new repos and refreshing the list when successful.
 export function RepoManager() {

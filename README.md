@@ -289,3 +289,8 @@ Add repofilter in main page - /app/page.tsx - for by repository filter
 RecordView/Recent view - on main page to display the recent items.
 
 -------------
+# Day6 in Plan.md
+
+stop and start hooks - seetings.json file update
+and a skill to - 
+    the exact JSON field names Claude Code expects for "block the stop and feed this text back" vs. "inject this as context at session start" — that's the part the skill is needed for, so code don't get the schema wrong and end up with a hook that silently never fires.

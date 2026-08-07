@@ -141,6 +141,21 @@ export async function getFileContent(
   }
 }
 
+// Existing label names on a repo. Used to only ever apply labels a repo
+// already has — never creates new ones (see createIssue()'s labels param).
+export async function listRepoLabels(repo: string): Promise<string[]> {
+  const { stdout } = await execFileP("gh", [
+    "label",
+    "list",
+    "--repo",
+    repo,
+    "--json",
+    "name",
+  ]);
+  const labels = JSON.parse(stdout) as { name: string }[];
+  return labels.map((l) => l.name);
+}
+
 // Files a real GitHub issue via `gh issue create`. Used when a proposed
 // (analyzer-suggested) issue gets approved — approval used to just insert a
 // local DB row with a synthetic number, since nothing was ever actually
@@ -149,17 +164,27 @@ export async function createIssue(
   repo: string,
   title: string,
   body: string,
+  // ADDED 2026-08-07: already filtered to label names that exist on the
+  // repo (see listRepoLabels()) — this function never creates a missing one.
+  labels: string[] = [],
 ): Promise<{ number: number; url: string }> {
-  const { stdout } = await execFileP("gh", [
-    "issue",
-    "create",
-    "--repo",
-    repo,
-    "--title",
-    title,
-    "--body",
-    body,
-  ]);
+  // COMMENTED 2026-08-07: no labels were ever passed to `gh issue create`,
+  // so every approved issue got filed with zero labels.
+  // const { stdout } = await execFileP("gh", [
+  //   "issue",
+  //   "create",
+  //   "--repo",
+  //   repo,
+  //   "--title",
+  //   title,
+  //   "--body",
+  //   body,
+  // ]);
+  const args = ["issue", "create", "--repo", repo, "--title", title, "--body", body];
+  for (const label of labels) {
+    args.push("--label", label);
+  }
+  const { stdout } = await execFileP("gh", args);
   const url = stdout.trim();
   const match = url.match(/\/issues\/(\d+)\s*$/);
   if (!match) {

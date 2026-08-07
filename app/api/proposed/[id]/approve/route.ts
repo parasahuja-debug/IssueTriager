@@ -15,7 +15,7 @@
 import { NextResponse } from "next/server";
 import { userInfo } from "node:os";
 import { sql } from "@/lib/db";
-import { createIssue } from "@/lib/github";
+import { createIssue, listRepoLabels } from "@/lib/github";
 import { classifyIssue } from "@/lib/classify";
 
 export const runtime = "nodejs";
@@ -27,6 +27,9 @@ type ProposedRow = {
   title: string;
   body: string | null;
   status: string;
+  // ADDED 2026-08-07: needed to match against the repo's existing labels.
+  category_guess: string | null;
+  priority_guess: string | null;
 };
 
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -40,7 +43,8 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   }
 
   const proposed = ((await sql`
-    SELECT id, github_repo, title, body, status FROM proposed_issues WHERE id = ${proposedId} LIMIT 1
+    SELECT id, github_repo, title, body, status, category_guess, priority_guess
+    FROM proposed_issues WHERE id = ${proposedId} LIMIT 1
   `) as unknown as ProposedRow[])[0];
   if (!proposed) return NextResponse.json({ ok: false, message: "not found" }, { status: 404 });
   if (proposed.status !== "pending") {
@@ -49,9 +53,26 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
 
   const reviewer = userInfo().username;
 
+  // ADDED 2026-08-07: only apply labels that already exist on the target
+  // repo — never create a missing one (see CLAUDE.md's labels-gap note).
+  // category_guess/priority_guess (e.g. "bug", "P1") are the candidates;
+  // a repo with no matching label just gets no label for that slot.
+  const existingLabels = await listRepoLabels(proposed.github_repo).catch(() => [] as string[]);
+  const candidateGuesses = [proposed.category_guess, proposed.priority_guess].filter(
+    (g): g is string => !!g,
+  );
+  const matchedLabels = candidateGuesses
+    .map((guess) => existingLabels.find((l) => l.toLowerCase() === guess.toLowerCase()))
+    .filter((l): l is string => !!l);
+
   let created: { number: number; url: string };
   try {
-    created = await createIssue(proposed.github_repo, proposed.title, proposed.body || "(no description provided)");
+    created = await createIssue(
+      proposed.github_repo,
+      proposed.title,
+      proposed.body || "(no description provided)",
+      matchedLabels,
+    );
   } catch (err) {
     return NextResponse.json(
       { ok: false, message: err instanceof Error ? err.message : "Failed to create GitHub issue" },
@@ -68,7 +89,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
       ${proposed.body},
       'open',
       ${created.url},
-      '{}',
+      ${matchedLabels},
       NOW(),
       'analyzer'
     )

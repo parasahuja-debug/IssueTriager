@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Pre-commit safety net (Day 6) — NOT YET ACTIVATED.
+#
+# COMMENTED OUT 2026-08-07: written and tracked so the design exists, but
+# `git config core.hooksPath scripts/git-hooks` has not been run, so git
+# never calls this file today. The body below is deliberately commented
+# out (not just left inert-by-non-activation) so a direct/manual
+# invocation of this file — e.g. `./scripts/git-hooks/pre-commit`, which
+# bypasses git entirely and is easy to do by accident while testing —
+# does nothing instead of silently running real checks. Uncomment the
+# body AND run the hooksPath setup step together, as one deliberate
+# decision — see CLAUDE.md's pre-commit hook note.
+#
+# set -euo pipefail
+# cd "$(git rev-parse --show-toplevel)"
+#
+# echo "[pre-commit] running tsc --noEmit..."
+# if ! pnpm typecheck; then
+#   echo "[pre-commit] tsc --noEmit failed — commit blocked. Fix the type errors, or 'git commit --no-verify' to bypass (not recommended)." >&2
+#   exit 1
+# fi
+#
+# PORT="${PORT:-3000}"
+# if curl -s -o /dev/null --max-time 1 "http://localhost:${PORT}/"; then
+#   echo "[pre-commit] dev server detected on :${PORT}, running pnpm smoke..."
+#   if ! pnpm smoke; then
+#     echo "[pre-commit] pnpm smoke failed — commit blocked." >&2
+#     exit 1
+#   fi
+# else
+#   echo "[pre-commit] no dev server detected on :${PORT} — skipping pnpm smoke (best-effort; start 'pnpm dev' first for full coverage before committing a page/route change)."
+# fi
+#
+# echo "[pre-commit] checks passed."
+exit 0

@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local-only working notes, not project documentation
 SCRUB-NOTES.md
+
+# Stop/SessionStart hook dedup state (scripts/check-doc-drift.sh) - machine-local
+.claude/.doc-drift-state

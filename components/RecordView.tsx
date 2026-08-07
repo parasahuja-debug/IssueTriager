@@ -14,7 +14,7 @@ type ViewedIssue = {
 
 const STORAGE_KEY = "recentlyViewedIssues";
 const UPDATE_EVENT = "recently-viewed-updated";
-const MAX_ENTRIES = 8;
+const MAX_ENTRIES = 5;
 
 type RecordViewProps = {
   repo: string;
