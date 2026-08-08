@@ -201,35 +201,55 @@ replacement of how local dev already works.
   serverless invocations — Neon's pooled connection string (built for this
   exact pattern) is the mitigation, not a rewrite of the singleton itself.
 
-- [ ] `lib/github.ts` — give `listIssues()` (and any other `gh`-shelling
+- [x] `lib/github.ts` — give `listIssues()` (and any other `gh`-shelling
   function) a dual path, same shape as `classify()`/`embed()`:
   - **If `GITHUB_TOKEN` is set** → real GitHub REST API via `fetch()`. This
     is what Vercel's env vars would set, since no `gh` binary or local
     `gh auth login` session exists there.
   - **If `GITHUB_TOKEN` is unset** → unchanged: shell out to the `gh` CLI,
     exactly as it does today. Local dev is untouched.
-- [ ] `lib/db.ts` — add a `DATABASE_SSL` env var. Unset locally (current
+  All 5 `gh`-shelling functions converted (not just `listIssues`), per
+  explicit request — `getRepoContext`, `getFileContent`, `listRepoLabels`,
+  `createIssue` too. Also added an explicit `GITHUB_API_MODE=rest|cli`
+  override on top of the `GITHUB_TOKEN`-presence default, per request —
+  optional, unset changes nothing.
+- [x] `lib/db.ts` — add a `DATABASE_SSL` env var. Unset locally (current
   no-SSL behavior unchanged); set to `"require"` only in Vercel's project
   settings, where `DATABASE_URL` points at Neon instead of local Supabase.
-- [ ] Provision a Neon free-tier project, get its pooled connection string
+- [x] Provision a Neon free-tier project, get its pooled connection string
   (the one meant for serverless use).
-- [ ] Run `pnpm migrate` **once, manually**, from a local machine, pointed at
+- [x] Run `pnpm migrate` **once, manually**, from a local machine, pointed at
   the Neon `DATABASE_URL` — not wired into an automatic build/deploy step.
   *Why manual:* consistent with the human-in-the-loop standing rule in
   `CLAUDE.md` — a broken migration auto-run on every deploy could silently
   break every future deployment; a manual run keeps a human in that loop.
-- [ ] Create the Vercel project (free Hobby tier), connect it to this repo's
+  Verified via a one-off table listing: all 8 tables present on Neon.
+- [x] Create the Vercel project (free Hobby tier), connect it to this repo's
   git remote, set env vars: `DATABASE_URL` (Neon, pooled), `DATABASE_SSL=require`,
   `GITHUB_TOKEN` (new — a personal access token), `OPENAI_API_KEY` (optional,
-  same as local).
-- [ ] Deploy. Confirm `pnpm validate`-equivalent checks pass against the
+  same as local). Deployed at `https://issue-triager.vercel.app/`.
+- [x] Deploy. Confirm `pnpm validate`-equivalent checks pass against the
   deployed URL (adapt `scripts/smoke.ts` to accept a `$BASE_URL` override
-  instead of always assuming `localhost:3000`).
-- [ ] Checkpoint: click through the deployed app exactly as done for the Day
-  3 local checkpoint — dashboard, issues list, an issue detail page, all 4
-  action buttons — confirm real network calls (GitHub REST API, Neon) work
-  end to end from the deployed environment, not just locally.
-- [ ] Archive snapshot: `DaywiseDirectoryStructure/day7.md`
+  instead of always assuming `localhost:3000`). `BASE_URL=https://issue-triager.vercel.app pnpm smoke`
+  — all 3 routes 200.
+- [x] Checkpoint: clicked through the deployed app — dashboard, issues list,
+  an issue detail page. Confirmed real network calls work end to end:
+  `/api/repos` and `/api/proposed` both return real data from Neon; a repo
+  added through the deployed UI shows `added_by: sbx_user1051` (Vercel's
+  serverless sandbox username, standing in for the local-OS-username
+  fallback `getRepoContext`'s route uses locally).
+  **Bug hit and fixed during this checkpoint:** `GET /api/proposed` selected
+  `p.file_path`, a column that never existed on `proposed_issues` (only
+  `analysis_runs.file_paths`, plural, an array, does) — 500'd every time the
+  deployed `/proposed` page loaded. Not a Neon/deploy-specific bug; it was
+  dormant since whenever the route was written, just never exercised by
+  `pnpm validate` (route-level bugs aren't caught by the page-only smoke
+  test — see `app/api/CLAUDE.md`'s "Not covered by `pnpm validate`" note)
+  or by local manual testing. Fixed the query, added a try/catch so a future
+  DB error returns `{ ok: false, message }` instead of a raw crash, and
+  improved empty/error-state copy in `app/proposed/page.tsx` and
+  `components/RepoFilter.tsx` to link to `/analyze` instead of dead-ending.
+- [x] Archive snapshot: `DaywiseDirectoryStructure/day7.md` written.
 
 ---
 
