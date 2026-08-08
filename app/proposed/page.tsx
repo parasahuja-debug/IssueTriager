@@ -12,7 +12,7 @@ type ProposedIssue = {
   category_guess: string | null;
   priority_guess: string | null;
   kind: string;
-  file_path: string | null;
+  file_paths: string[] | null;
   status: string;
   created_at: string;
   model: string | null;
@@ -42,8 +42,8 @@ export default function ProposedPage() {
       try {
         const queryParam = tab === "all" ? "" : `?status=${tab}`;
         const res = await fetch(`/api/proposed${queryParam}`);
-        if (!res.ok) throw new Error("Failed to fetch proposed issues");
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || "Failed to fetch proposed issues");
         setIssues(data.issues || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
@@ -128,13 +128,29 @@ export default function ProposedPage() {
       <section>
         {loading && <div className="text-inkDim">Loading proposals...</div>}
 
-        {error && <div className="text-red-400">Error: {error}</div>}
+        {error && (
+          <div className="text-red-400">
+            {error} — try again, or{" "}
+            <Link href="/analyze" className="underline hover:text-red-300">
+              go run an analysis
+            </Link>{" "}
+            to generate proposals.
+          </div>
+        )}
 
         {!loading && !error && issues.length === 0 && (
           <div className="text-inkDim">
-            {tab === "all"
-              ? "No proposed issues yet. Run an analysis to discover candidates."
-              : `No ${tab} proposals.`}
+            {tab === "all" ? (
+              <>
+                No proposed issues yet.{" "}
+                <Link href="/analyze" className="underline hover:text-glow">
+                  Go to Analyze
+                </Link>{" "}
+                to track a repo and run an analysis to discover candidates.
+              </>
+            ) : (
+              `No ${tab} proposals.`
+            )}
           </div>
         )}
 
@@ -153,9 +169,7 @@ export default function ProposedPage() {
                     <div>
                       Analyzed:{" "}
                       {issue.kind === "file"
-                        ? issue.file_path
-                          ? `${issue.file_path}`
-                          : "Unknown file"
+                        ? issue.file_paths?.[0] ?? "Unknown file"
                         : "Repository Metadata"}
                     </div>
                     {issue.model && <div>Model: <span className="font-mono">{issue.model}</span></div>}

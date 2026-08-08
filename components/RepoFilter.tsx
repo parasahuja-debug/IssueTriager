@@ -2,6 +2,7 @@
 
 import { useEffect, useState, forwardRef, useImperativeHandle } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 type Repo = {
   github_repo: string;
@@ -63,7 +64,15 @@ const RepoFilterComponent = forwardRef<{ refetch: () => void }, {}>((_props, ref
   }
 
   if (repos.length === 0) {
-    return <div className="text-inkDim text-sm">No repositories tracked yet.</div>;
+    return (
+      <div className="text-inkDim text-sm">
+        No repositories tracked yet.{" "}
+        <Link href="/analyze" className="underline hover:text-glow">
+          Add one from Analyze
+        </Link>
+        .
+      </div>
+    );
   }
 
   // Bubble the selected repo to the top so it's always visible within the
