@@ -1,8 +1,11 @@
-// pnpm smoke — assumes `pnpm dev` is already running. Hits a few key routes
-// and fails loudly on any 5xx, as a basic "did I break the app" check.
-// Uses the plain Next.js default port; override with $PORT if needed.
+// pnpm smoke — assumes `pnpm dev` is already running (or $BASE_URL points at
+// an already-deployed site). Hits a few key routes and fails loudly on any
+// 5xx, as a basic "did I break the app" check.
+// $BASE_URL (e.g. https://your-app.vercel.app) overrides localhost entirely,
+// for running this same check against a Vercel deploy — see Day 7. Without
+// it, uses the plain Next.js default port; override with $PORT if needed.
 const port = Number(process.env.PORT ?? 3000);
-const base = `http://localhost:${port}`;
+const base = process.env.BASE_URL ?? `http://localhost:${port}`;
 
 const routes = ["/", "/issues", "/issues/1"];
 const fails: string[] = [];

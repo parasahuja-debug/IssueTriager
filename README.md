@@ -294,3 +294,35 @@ RecordView/Recent view - on main page to display the recent items.
 stop and start hooks - seetings.json file update
 and a skill to - 
     the exact JSON field names Claude Code expects for "block the stop and feed this text back" vs. "inject this as context at session start" — that's the part the skill is needed for, so code don't get the schema wrong and end up with a hook that silently never fires.
+
+---------------
+
+# Day 7 in Plan.md
+
+- updated lib/github.ts with REST API calls.
+    Listissues - 
+        to list issues on git
+    getRepoContext 
+        is the function behind the Day 5 repo-analyzer feature — it gathers the metadata-level signal (description, topics, README text, last ~20 commit messages, existing open-issue titles for de-dup) that analyzeRepo() uses to propose candidate issues. Since you picked "all 6 functions," this is the second one being converted to the REST/gh-CLI dual path.
+    getFileContent - 
+        getFileContent is the file-scoped depth of the Day 5 analyzer: given a repo and one human-picked file path, it fetches that single file's raw content (e.g. src/lib/ai.ts) so analyzeRepo() can propose issues from real code, not just repo metadata — as opposed to getRepoContext, which never reads file contents.
+    listRepoLabels() - 
+        to list the Repo labels
+    createIssue() — 
+        the function that actually files a real GitHub issue when a human approves an analyzer-proposed issue (/api/proposed/[id]/approve). Adding the REST branch means approval works on the deployed Vercel site too, not just locally where gh exists.
+- Env variable to override the use of REST/API even if GITHUBtoken is present
+- Database SSL addition for require setting in case of remote setup/cloud setup on lib/db.ts
+- .env.example update for the env variable setup
+- Base url in scripts/smoke.ts for local or remote setup
+- Setup Neon DB -
+    1. Go to console.neon.tech and sign up (GitHub login is fastest).
+    2. Create a new project — name it something like github-checker. Pick any region close to you; region doesn't matter much at our scale.
+    3. Neon creates a default database and branch automatically. Open the SQL editor for that project and run:
+
+    CREATE EXTENSION IF NOT EXISTS vector;
+    (Same as we did for local Supabase in Day 1 — migrations/001_init.sql assumes this extension already exists.)
+    4. Go to the project's Connection Details panel. Make sure the toggle is set to "Pooled connection" (not direct) — that's the one built for serverless/Vercel use. Copy that connection string. - Connect button on dashboard
+
+- .env.neon - and add it in gitignore
+- add the connection string copied from connect of neon.
+- run - export $(cat .env.neon | xargs) && pnpm migrate - manually through terminal

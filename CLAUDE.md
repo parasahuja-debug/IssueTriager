@@ -56,6 +56,10 @@ the schema. No rollback.
 `pnpm validate` — `tsc --noEmit` + `pnpm smoke` (hits `/`, `/issues`, `/issues/1`
 against an already-running `pnpm dev`, fails on any 5xx). Run this before
 believing a UI change works — see the CSS gotcha below for why.
+`pnpm smoke` accepts a `$BASE_URL` override (e.g.
+`BASE_URL=https://your-app.vercel.app pnpm smoke`) to run the same 5xx check
+against a deployed site instead of `localhost` — added Day 7 for the Vercel
+deploy checkpoint.
 
 ## Where things live
 `app/api/{sync,classify,similar,plan,dispatch}/[id]/route.ts` — all mutating
@@ -73,6 +77,9 @@ the insert-a-classification-row logic inline again.
 ## Non-obvious
 - Local dev DB is Supabase's local stack (`supabase start`) — no
   `ssl: "require"` needed on the Postgres client, since it's local, not cloud.
+  Day 7 made this explicit via a `DATABASE_SSL` env var (`lib/db.ts`): unset
+  locally (unchanged), set to `require` only in Vercel's project settings,
+  where `DATABASE_URL` points at Neon instead.
 - `supabase/config.toml` is currently misnamed on disk (left as-is intentionally
   for now) — `supabase stop`/`db reset` may not behave correctly until fixed.
 - The classifier and embedder fall back silently when `OPENAI_API_KEY` is
