@@ -1,42 +1,126 @@
 
-# About Project 
+# GitHub Checker
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+An AI-assisted GitHub issue triage app. It syncs issues from a tracked repo,
+classifies each one (category / priority / complexity), finds similar past
+issues by embedding + cosine similarity, generates a markdown fix plan, and
+(currently simulated, not real) dispatches it for work. A separate repo
+*analyzer* can also look at a repo itself — its metadata or one specific
+file — and propose brand-new candidate issues, always staged for explicit
+human approval before anything real gets filed on GitHub.
 
-## Getting Started
+Built incrementally over 7 days as a learning project; every day's decisions,
+gotchas, and the reasoning behind them are written up in [`PLAN.md`](./PLAN.md)
+(the structured build plan) and this file's [Daywise Plan](#daywise-plan)
+section below (a more informal, command-by-command log of how each day
+actually went). [`CLAUDE.md`](./CLAUDE.md), [`app/api/CLAUDE.md`](./app/api/CLAUDE.md),
+and [`lib/CLAUDE.md`](./lib/CLAUDE.md) are the standing reference docs for
+conventions, gotchas, and a file-by-file map — written for an AI pair-programmer
+picking up the project cold, but equally useful for a human doing the same.
 
-First, run the development server:
+**Live deployment:** https://issue-triager.vercel.app/
+
+## Features
+
+- **Sync** — pulls issues for a tracked repo from GitHub (via the `gh` CLI
+  locally, or GitHub's REST API directly when deployed — see
+  [Deployment](#deployment) below) and upserts them into Postgres.
+- **Classify** — category (bug / feature / question / docs / chore),
+  priority (P0–P3), complexity, and a short reasoning summary per issue.
+  Real OpenAI call if `OPENAI_API_KEY` is set, otherwise a deterministic
+  rule-based classifier — the fallback is the happy path for local dev, not
+  an error case.
+- **Similar issues** — every issue gets embedded (real OpenAI embedding, or
+  a deterministic hash-based fallback) and compared against every other
+  issue's embedding via `pgvector`'s cosine distance operator, surfacing the
+  3 closest matches. Decision-support only — never auto-merges or closes
+  anything.
+- **Plan generation** — a structured markdown plan (Context / Approach /
+  Files to touch / Validation / Risks) per issue, real-call-or-template
+  fallback, same shape as classify/embed.
+- **Dispatch (simulated)** — records a fake branch name and a `runs` row as
+  if a coding agent had picked up the issue. No real agent or git branch —
+  it's the seam a future real dispatch workflow plugs into.
+- **Repo analyzer** — point it at a tracked repo (metadata-level: README,
+  topics, recent commits, open-issue titles; or file-scoped: one specific
+  file's real content) and it proposes 3–5 candidate issues, with a token/
+  cost estimate shown *before* anything is spent. Every proposal sits in a
+  staging table until a human explicitly approves (files a real GitHub
+  issue) or rejects (kept forever as an audit trail) it.
+- **Multi-repo tracking** — track and switch between several repos from the
+  UI, each issue/proposal tagged with which repo it came from.
+
+## Stack
+
+Next.js 15 (App Router) + TypeScript, deployed on Vercel. Postgres with the
+`pgvector` extension — local dev runs Supabase's local stack; the deployed
+app runs against Neon's serverless Postgres (free tier). Raw `postgres`
+client, no ORM — see [`lib/CLAUDE.md`](./lib/CLAUDE.md) for why. OpenAI SDK
+(plus Anthropic/Gemini for the analyzer) is optional throughout: every
+AI-backed function has a real-call-or-fallback branch, gated on whether the
+relevant API key env var is set.
+
+## Getting started (local dev)
+
+Prerequisites: [`pnpm`](https://pnpm.io), the [`gh` CLI](https://cli.github.com)
+(logged in via `gh auth login`), and the [Supabase CLI](https://supabase.com/docs/guides/cli)
+for a local Postgres instance.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+# 1. Install dependencies
+pnpm install
+
+# 2. Start local Supabase (Postgres + pgvector, in Docker)
+supabase start
+
+# 3. Copy the env template and fill in DATABASE_URL (from `supabase start`'s
+#    output) — everything else is optional for local dev
+cp .env.example .env
+
+# 4. Apply every migration in migrations/, in order (idempotent, safe to re-run)
+pnpm migrate
+
+# 5. Start the dev server
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). From there, add a
+tracked repo on the `/analyze` page (or set `GITHUB_REPO` in `.env` and run
+`pnpm seed` to sync + classify + embed a repo's issues end to end from the
+terminal in one shot).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Other useful commands:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+pnpm validate   # tsc --noEmit + a smoke test hitting /, /issues, /issues/1
+                # for any 5xx — run this before believing a UI change works
+pnpm smoke      # just the smoke test; accepts BASE_URL=<url> to point it
+                # at a deployed site instead of localhost
+```
 
-## Learn More
+No `OPENAI_API_KEY`? Everything still works — classify/embed/plan/analyze
+all fall back to deterministic, zero-cost mocks instead of throwing.
 
-To learn more about Next.js, take a look at the following resources:
+## Deployment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The deployed app (Vercel + Neon) is additive, not a replacement for local
+dev — every piece of deploy-specific behavior is an env-var-gated branch,
+the same shape as the OpenAI-or-fallback pattern above:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `GITHUB_TOKEN` set → `lib/github.ts` calls GitHub's REST API via `fetch()`
+  instead of shelling out to the `gh` CLI (which doesn't exist on Vercel).
+  `GITHUB_API_MODE=rest|cli` can force one path explicitly if needed.
+- `DATABASE_SSL=require` → `lib/db.ts` passes `ssl: "require"` to the
+  Postgres client, needed for Neon; unset locally where it isn't.
 
-## Deploy on Vercel
+See [`PLAN.md`](./PLAN.md)'s Day 7 section and this file's
+[Day 7](#day-7-in-planmd) notes below for the exact steps (Neon project
+setup, Vercel env vars, etc.).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Learn more about Next.js
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Next.js Documentation](https://nextjs.org/docs) — Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) — an interactive tutorial.
 
 ------
 ------
